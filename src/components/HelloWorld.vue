@@ -1,5 +1,5 @@
 <template>
-  <v-layout wrap>
+  <v-layout  wrap>
     <v-flex
       xs12
       class="mb-3"
