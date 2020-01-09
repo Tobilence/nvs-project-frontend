@@ -3,21 +3,51 @@
     <v-col>
       <v-sheet height="64">
         <v-toolbar flat color="white">
-          <v-btn outlined class="mr-4" @click="setToday">
+
+          <!-- Basic Infos and Buttons -->
+          <v-btn outlined color="primary" class="mr-4" dark @click="dialog=true">
+            New Event
+          </v-btn>
+          <v-btn outlined class="mr-4" color="grey darken-2" @click="setToday">
             Today
           </v-btn>
-          <v-btn fab text small @click="prev">
+          <v-btn fab text small color="grey darken-2" @click="prev">
             <v-icon small>mdi-chevron-left</v-icon>
           </v-btn>
-          <v-btn fab text small @click="next">
+          <v-btn fab text small color="grey darken-2" @click="next">
             <v-icon small>mdi-chevron-right</v-icon>
           </v-btn>
           <v-toolbar-title>{{ title }}</v-toolbar-title>
           <v-spacer></v-spacer>
+
+          <!-- Country Code Combo Box -->
           <v-menu bottom right>
             <template v-slot:activator="{ on }">
               <v-btn
                 outlined
+                color="grey darken-2"
+                v-on="on"
+                class="mr-4"
+              >
+                <span>{{ countryCodeToName[countryCode] }}</span>
+                <v-icon right>mdi-menu-down</v-icon>
+              </v-btn>
+            </template>
+            <v-list>
+              <v-list-item @click="countryCodeChanged('AT')">
+                <v-list-item-title>Austria</v-list-item-title>
+              </v-list-item>
+              <v-list-item @click="countryCodeChanged('US')">
+                <v-list-item-title>USA</v-list-item-title>
+              </v-list-item>
+            </v-list>
+          </v-menu>
+          <!-- Calendar View Combo Box -->
+          <v-menu bottom right>
+            <template v-slot:activator="{ on }">
+              <v-btn
+                outlined
+                color="grey darken-2"
                 v-on="on"
               >
                 <span>{{ typeToLabel[type] }}</span>
@@ -41,14 +71,31 @@
           </v-menu>
         </v-toolbar>
       </v-sheet>
+
+      <!-- Add Event Dialog -->
+      <v-dialog v-model="dialog" max-width="500">
+        <v-card>
+          <v-container>
+            <v-form @submit.prevent="addEvent">
+              <v-text-field v-model="name" type="text" label="Name"/>
+              <v-text-field v-model="details" type="text" label="Details"/>
+              <v-text-field v-model="start" type="date" label="Date"/>
+              <v-btn type="submit" color="primary" class="mr-4" @click.stop="dialog=false">
+                Create Event
+              </v-btn>
+            </v-form>
+          </v-container>
+        </v-card>
+      </v-dialog>
+
       <v-sheet height="600">
+        <!-- Calendar -->
         <v-calendar
           ref="calendar"
           v-model="focus"
           color="primary"
           :events="events"
           :event-color="getEventColor"
-          :event-margin-bottom="3"
           :now="today"
           :type="type"
           @click:event="showEvent"
@@ -60,7 +107,6 @@
           v-model="selectedOpen"
           :close-on-content-click="false"
           :activator="selectedElement"
-          full-width
           offset-x
         >
           <v-card
@@ -72,20 +118,38 @@
               :color="selectedEvent.color"
               dark
             >
-              <v-btn icon>
-                <v-icon>mdi-pencil</v-icon>
+              <v-btn @click="deleteEvent(selectedEvent.id)" icon>
+                <v-icon>mdi-delete</v-icon>
               </v-btn>
-              <v-toolbar-title v-html="selectedEvent.name"></v-toolbar-title>
+              <form v-if="currentlyEditing !== selectedEvent.id">
+                {{selectedEvent.name}}
+              </form>
+              <form v-else>
+                <textarea
+                  v-model="selectedEvent.name"
+                  type="text"
+                  style="width: 100%"
+                  :max-height="50"
+                  placeholder="add note"
+                >
+                </textarea>
+              </form>
               <v-spacer></v-spacer>
-              <v-btn icon>
-                <v-icon>mdi-heart</v-icon>
-              </v-btn>
-              <v-btn icon>
-                <v-icon>mdi-dots-vertical</v-icon>
-              </v-btn>
             </v-toolbar>
             <v-card-text>
-              <span v-html="selectedEvent.details"></span>
+              <form v-if="currentlyEditing !== selectedEvent.id">
+                {{selectedEvent.details}}
+              </form>
+              <form v-else>
+                <textarea
+                  v-model="selectedEvent.details"
+                  type="text"
+                  style="width: 100%"
+                  :min-height="100"
+                  placeholder="add note"
+                >
+                </textarea>
+              </form>
             </v-card-text>
             <v-card-actions>
               <v-btn
@@ -93,7 +157,21 @@
                 color="secondary"
                 @click="selectedOpen = false"
               >
-                Cancel
+                Close
+              </v-btn>
+              <v-btn
+                text
+                v-if="currentlyEditing !== selectedEvent.id"
+                @click.prevent="editEvent(selectedEvent)"
+              >
+                Edit
+              </v-btn>
+              <v-btn
+                text
+                v-else
+                @click.prevent="updateEvent(selectedEvent)"
+              >
+                Save
               </v-btn>
             </v-card-actions>
           </v-card>
@@ -104,230 +182,208 @@
 </template>
 
 <script>
-  export default {
-    data: () => ({
-      today: '2019-01-01',
-      focus: '2019-01-01',
-      type: 'month',
-      typeToLabel: {
-        month: 'Month',
-        week: 'Week',
-        day: 'Day',
-        '4day': '4 Days',
-      },
-      start: null,
-      end: null,
-      selectedEvent: {},
-      selectedElement: null,
-      selectedOpen: false,
-      events: [
-        {
-          name: 'Vacation',
-          details: 'Going to the beach!',
-          start: '2018-12-29',
-          end: '2019-01-01',
-          color: 'blue',
-        },
-        {
-          name: 'Meeting',
-          details: 'Spending time on how we do not have enough time',
-          start: '2019-01-07 09:00',
-          end: '2019-01-07 09:30',
-          color: 'indigo',
-        },
-        {
-          name: 'Large Event',
-          details: 'This starts in the middle of an event and spans over multiple events',
-          start: '2018-12-31',
-          end: '2019-01-04',
-          color: 'deep-purple',
-        },
-        {
-          name: '3rd to 7th',
-          details: 'Testing',
-          start: '2019-01-03',
-          end: '2019-01-07',
-          color: 'cyan',
-        },
-        {
-          name: 'Big Meeting',
-          details: 'A very important meeting about nothing',
-          start: '2019-01-07 08:00',
-          end: '2019-01-07 11:30',
-          color: 'red',
-        },
-        {
-          name: 'Another Meeting',
-          details: 'Another important meeting about nothing',
-          start: '2019-01-07 10:00',
-          end: '2019-01-07 13:30',
-          color: 'brown',
-        },
-        {
-          name: '7th to 8th',
-          start: '2019-01-07',
-          end: '2019-01-08',
-          color: 'blue',
-        },
-        {
-          name: 'Lunch',
-          details: 'Time to feed',
-          start: '2019-01-07 12:00',
-          end: '2019-01-07 15:00',
-          color: 'deep-orange',
-        },
-        {
-          name: '30th Birthday',
-          details: 'Celebrate responsibly',
-          start: '2019-01-03',
-          color: 'teal',
-        },
-        {
-          name: 'New Year',
-          details: 'Eat chocolate until you pass out',
-          start: '2019-01-01',
-          end: '2019-01-02',
-          color: 'green',
-        },
-        {
-          name: 'Conference',
-          details: 'The best time of my life',
-          start: '2019-01-21',
-          end: '2019-01-28',
-          color: 'grey darken-1',
-        },
-        {
-          name: 'Hackathon',
-          details: 'Code like there is no tommorrow',
-          start: '2019-01-30 23:00',
-          end: '2019-02-01 08:00',
-          color: 'black',
-        },
-        {
-          name: 'event 1',
-          start: '2019-01-14 18:00',
-          end: '2019-01-14 19:00',
-          color: '#4285F4',
-        },
-        {
-          name: 'event 2',
-          start: '2019-01-14 18:00',
-          end: '2019-01-14 19:00',
-          color: '#4285F4',
-        },
-        {
-          name: 'event 5',
-          start: '2019-01-14 18:00',
-          end: '2019-01-14 19:00',
-          color: '#4285F4',
-        },
-        {
-          name: 'event 3',
-          start: '2019-01-14 18:30',
-          end: '2019-01-14 20:30',
-          color: '#4285F4',
-        },
-        {
-          name: 'event 4',
-          start: '2019-01-14 19:00',
-          end: '2019-01-14 20:00',
-          color: '#4285F4',
-        },
-        {
-          name: 'event 6',
-          start: '2019-01-14 21:00',
-          end: '2019-01-14 23:00',
-          color: '#4285F4',
-        },
-        {
-          name: 'event 7',
-          start: '2019-01-14 22:00',
-          end: '2019-01-14 23:00',
-          color: '#4285F4',
-        },
-      ],
-    }),
-    computed: {
-      title () {
-        const { start, end } = this
-        if (!start || !end) {
-          return ''
-        }
 
-        const startMonth = this.monthFormatter(start)
-        const endMonth = this.monthFormatter(end)
-        const suffixMonth = startMonth === endMonth ? '' : endMonth
-
-        const startYear = start.year
-        const endYear = end.year
-        const suffixYear = startYear === endYear ? '' : endYear
-
-        const startDay = start.day + this.nth(start.day)
-        const endDay = end.day + this.nth(end.day)
-
-        switch (this.type) {
-          case 'month':
-            return `${startMonth} ${startYear}`
-          case 'week':
-          case '4day':
-            return `${startMonth} ${startDay} ${startYear} - ${suffixMonth} ${endDay} ${suffixYear}`
-          case 'day':
-            return `${startMonth} ${startDay} ${startYear}`
-        }
+export default {
+  props: ['calendarId'],
+  data: () => ({
+    today: new Date().toISOString().substring(0,10),
+    focus: new Date().toISOString().substring(0,10),
+    type: "month",
+    typeToLabel: {
+      month: "Month",
+      week: "Week",
+      day:"Day",
+      "4day": "4 Days"
+    },
+    countryCode: "AT",
+    countryCodeToName: {
+      "AT":"Austria",
+      "US":"USA"
+    },
+    name: null,
+    details: null,
+    start: null,
+    end: null,
+    color: "#1976D2",
+    currentlyEditing: null,
+    selectedEvent: {},
+    selectedElement: null,
+    selectedOpen: false,
+    events: [],
+    dialog: false
+  }),
+  mounted() {
+    this.getEvents()
+  },
+  computed: {
+    title () {
+      const { start, end } = this
+      if (!start || !end) {
         return ''
-      },
-      monthFormatter () {
-        return this.$refs.calendar.getFormatter({
-          timeZone: 'UTC', month: 'long',
-        })
-      },
+      }
+      const startMonth = this.monthFormatter(start)
+      const endMonth = this.monthFormatter(end)
+      const suffixMonth = startMonth === endMonth ? '' : endMonth
+      const startYear = start.year
+      const endYear = end.year
+      const suffixYear = startYear === endYear ? '' : endYear
+      const startDay = start.day + this.nth(start.day)
+      const endDay = end.day + this.nth(end.day)
+      switch (this.type) {
+        case 'month':
+        return `${startMonth} ${startYear}`
+        case 'week':
+        case '4day':
+        return `${startMonth} ${startDay} ${startYear} - ${suffixMonth} ${endDay} ${suffixYear}`
+        case 'day':
+        return `${startMonth} ${startDay} ${startYear}`
+      }
+      return ''
     },
-    mounted () {
-      this.$refs.calendar.checkChange()
+    monthFormatter () {
+      return this.$refs.calendar.getFormatter({
+        timeZone: 'UTC', month: 'long',
+      })
+    }
+  },
+  methods: {
+    getEvents() {
+       let tempEvents = loadEventsAndHolidays(this.calendarId, this.countryCode)
+       this.events = tempEvents
     },
-    methods: {
-      viewDay ({ date }) {
-        this.focus = date
-        this.type = 'day'
-      },
-      getEventColor (event) {
+    getEventColor(event){
         return event.color
-      },
-      setToday () {
-        this.focus = this.today
-      },
-      prev () {
-        this.$refs.calendar.prev()
-      },
-      next () {
-        this.$refs.calendar.next()
-      },
-      showEvent ({ nativeEvent, event }) {
-        const open = () => {
-          this.selectedEvent = event
-          this.selectedElement = nativeEvent.target
-          setTimeout(() => this.selectedOpen = true, 10)
-        }
-
-        if (this.selectedOpen) {
-          this.selectedOpen = false
-          setTimeout(open, 10)
-        } else {
-          open()
-        }
-
-        nativeEvent.stopPropagation()
-      },
-      updateRange ({ start, end }) {
-        // You could load events from an outside source (like database) now that we have the start and end dates on the calendar
-        this.start = start
-        this.end = end
-      },
-      nth (d) {
-        return d > 3 && d < 21
-          ? 'th'
-          : ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'][d % 10]
-      },
     },
+    setToday() {
+        this.focus = this.today
+    },
+    prev() {
+      this.$refs.calendar.prev()
+    },
+    next() {
+      this.$refs.calendar.next()
+    },
+    viewDay({date}) {
+      this.focus = date
+      this.type = "day"
+    },
+    countryCodeChanged(countryCode) {
+      this.countryCode = countryCode
+      this.events = loadEventsAndHolidays(this.calendarId, this.countryCode)
+    },
+    showEvent({nativeEvent, event}) {
+      const open = () => {
+        this.selectedEvent = event
+        this.selectedElement = nativeEvent.target
+        setTimeout(() => (this.selectedOpen = true), 10)
+      }
+
+      if(this.selectedOpen) {
+        this.selectedOpen = false
+        setTimeout(open, 10)
+      } else {
+        open()
+      }
+
+      nativeEvent.stopPropagation()
+    },
+    updateRange({start, end}) {
+      this.start = start
+      this.end = end
+    },
+    editEvent(ev){
+      this.currentlyEditing = ev.id
+    },
+    updateEvent(ev){
+      
+      ev.calendar = {id: this.calendarId}
+
+      let xhr = new XMLHttpRequest()
+      xhr.open("POST", "http://localhost:8085/events", true)
+      xhr.setRequestHeader("Content-Type", "Application/Json")
+      xhr.send(JSON.stringify(ev))
+
+      this.selectedOpen = false
+      this.currentlyEditing = null
+    },
+    addEvent() {
+      let self = this
+      if(this.name && this.start) {
+        //POST Request to insert event into the db  
+        let ev = {}
+        ev.name = this.name
+        ev.details = this.details
+        ev.start = this.start
+        ev.calendar = {id: this.calendarId}
+
+        let xhr = new XMLHttpRequest()
+        xhr.onreadystatechange = function(){
+        if(xhr.readyState == 4 && xhr.status == 200) {
+            self.getEvents()
+        }
+      }
+        xhr.open("POST", "http://localhost:8085/events", true)
+        xhr.setRequestHeader("Content-Type", "Application/Json")
+        xhr.send(JSON.stringify(ev))
+
+        this.name = ""
+        this.details = ""
+        this.start = ""
+      } else {
+        alert("Name and Date are mandatory fields!")
+      }
+    },
+    deleteEvent(evId){
+      let xhr = new XMLHttpRequest()
+      let self = this
+      xhr.onreadystatechange = function(){
+        if(xhr.readyState == 4 && xhr.status == 200) {
+            self.selectedOpen = false
+            self.getEvents()
+        }
+      }
+      xhr.open("DELETE", "http://localhost:8085/events/" + evId, true)
+      xhr.send()
+    },
+    nth (d) {
+      return d > 3 && d < 21
+      ? 'th'
+      : ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'][d % 10]
+    }
   }
+}
+
+function loadEventsAndHolidays(calendarId, countryCode) {
+  let tempEvents = []
+  //http request to load all custom events
+       let xhr = new XMLHttpRequest()
+        xhr.onreadystatechange = function(){
+            if(xhr.readyState == 4 && xhr.status == 200) {
+                let snapshot = JSON.parse(xhr.responseText)
+                snapshot.forEach(ev => {
+                  ev.color = "#3519bf"
+                  ev.type = "scheduled"
+                  tempEvents.push(ev)
+                })
+            }
+        }
+        xhr.open("GET", "http://localhost:8085/events?calendarId=" + calendarId, true)
+        xhr.send()
+
+        //http request to load all holidays
+        let xmlHttp = new XMLHttpRequest()
+        xmlHttp.onreadystatechange = function() {
+          if(xmlHttp.readyState == 4 && xmlHttp.status == 200) {
+              let snapshot = JSON.parse(xmlHttp.responseText)
+              snapshot.forEach(ev => {
+                ev.color = "#eb6e2a"
+                ev.type = "holiday"
+                tempEvents.push(ev)
+              })
+          }
+        }
+        xmlHttp.open("GET", "http://localhost:8085/holidays/" + countryCode)
+        xmlHttp.send()
+    return tempEvents
+}
 </script>
