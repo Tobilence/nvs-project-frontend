@@ -42,9 +42,19 @@ import { send } from 'q'
 
         let xhr = new XMLHttpRequest()
         xhr.onreadystatechange = function() {
-          if(xhr.readyState == 4 && xhr.status == 200) {
-            let user = JSON.parse(xhr.responseText)
-            router.push({name: 'calendar', params: {calendarId: user.calendar.id}})
+          if(xhr.readyState == 4) {
+            if(xhr.status == 200) {
+              let user = JSON.parse(xhr.responseText)
+              router.push({name: 'calendar', params: {calendarId: user.calendar.id}})
+            }
+            else {
+              if(xhr.status == 401){
+                alert("Username and password don't match")
+              } else if(xhr.status == 500) {
+                let error = JSON.parse(xhr.responseText)
+                alert(error.message)
+              }
+            }
           }
         }
         xhr.open("POST", "http://localhost:8085/authentication", true)

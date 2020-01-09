@@ -37,8 +37,14 @@
               <v-list-item @click="countryCodeChanged('AT')">
                 <v-list-item-title>Austria</v-list-item-title>
               </v-list-item>
+              <v-list-item @click="countryCodeChanged('AU')">
+                <v-list-item-title>Australia</v-list-item-title>
+              </v-list-item>
               <v-list-item @click="countryCodeChanged('US')">
                 <v-list-item-title>USA</v-list-item-title>
+              </v-list-item>
+              <v-list-item @click="countryCodeChanged('JP')">
+                <v-list-item-title>Japan</v-list-item-title>
               </v-list-item>
             </v-list>
           </v-menu>
@@ -198,7 +204,9 @@ export default {
     countryCode: "AT",
     countryCodeToName: {
       "AT":"Austria",
-      "US":"USA"
+      "US":"USA",
+      "AU":"Australia",
+      "JP":"Japan"
     },
     name: null,
     details: null,
@@ -214,6 +222,10 @@ export default {
   }),
   mounted() {
     this.getEvents()
+    if(this.calendarId == null) {
+      alert("You are not logged in! Please log in or register to access this site!")
+      this.$router.push('/')
+    }
   },
   computed: {
     title () {

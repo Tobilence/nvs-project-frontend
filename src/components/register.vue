@@ -47,15 +47,14 @@
         let xhr = new XMLHttpRequest()
         xhr.onreadystatechange = function() {
           if(xhr.readyState == 4) {
-            if(status == 200) {
+            
+            if(xhr.status == 200) {
               let user = JSON.parse(xhr.responseText)
-              router.push({name: 'calendar', params: {calendarId: user.calendar.id}})
+              self.$router.push({name: 'calendar', params: {calendarId: user.calendar.id}})
+            } else {
+              let error = JSON.parse(xhr.responseText)
+              alert(error.message)
             }
-            else {
-              if(status == 500) {
-                alert("This username already exists")
-              }
-            } 
           }
         }
         xhr.open("POST", "http://localhost:8085/users", true)
