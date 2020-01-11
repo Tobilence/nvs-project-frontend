@@ -59,7 +59,19 @@ Clicking the button will open a popup menu, which will look like this:
 After entering the information needed (Name and Date is mandatory, Details is optional) you can add the event by clicking the 'Create Event' Buttton
 
 
+## Deployment
 
+### Installation
+To start the frontend locally, you will need node.js \
+Using the node packed manager you will then need to install vue. 
 
+Vue can be installed by running:
+- `npm install vue`
+- `npm install @vue/cli`
 
+Further instructions on installing vue can be read here: https://vuetifyjs.com/en/getting-started/quick-start#webpack-install
 
+### Running the app
+To run the app, you simply have to clone the repository to your desired location. \
+Then navigate to the folder in the terminal and run `npm run serve`
+By default, the application will start on port 8080. However, if this port is already in use it will use the next available port. The port the application started on will be printed in the terminal.
